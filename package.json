@@ -1,6 +1,6 @@
 {
   "name": "aws-process-env",
-  "version": "1.3.2",
+  "version": "1.3.5",
   "description": "This NPM module helps you fetch data from AWS parameter store and assign it to Process.env variable",
   "main": "index.js",
   "scripts": {

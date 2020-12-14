@@ -4,7 +4,7 @@ const AWS = require('aws-sdk');
 let ssmData = {};
 
 
-const getSSMParamAsync = function () {
+const getSSMParamAsync = async function () {
     try {
         const path = process.argv[3];
         const region = process.argv[2];
@@ -13,11 +13,17 @@ const getSSMParamAsync = function () {
         const ssm = new AWS.SSM({
             region
         });
-        getAllParamProm(ssm, path).then(data => {
-            if (data.Parameters && data.Parameters.length > 0) {
-                parseData(data.Parameters, path);
-            }
-        })
+
+        let data = await getAllParamProm(ssm, path);
+        let completeData = data.Parameters;
+        while (data && data.NextToken) {
+            data = await getAllParamProm(ssm, path, data.NextToken);
+            completeData = [...completeData, ...data.Parameters];
+        }
+        if (completeData && completeData.length > 0) {
+            parseData(completeData, path);
+        }
+
 
     } catch (e) {
         throw new Error(e);
@@ -26,21 +32,39 @@ const getSSMParamAsync = function () {
 
 }
 
-const getAllParamProm = function (ssm, path) {
-    return new Promise((resolve, reject) => {
-        ssm.getParametersByPath({
-            Path: path,
-            Recursive: true,
-            WithDecryption: true
-        }, (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
+const getAllParamProm = function (ssm, path, NextToken) {
+    if (NextToken) {
+        return new Promise((resolve, reject) => {
+            ssm.getParametersByPath({
+                Path: path,
+                Recursive: true,
+                NextToken,
+                WithDecryption: true
+            }, (err, data) => {
+                if (err) {
+                    reject(err);
+                } else {
 
-                resolve(data);
-            }
+                    resolve(data);
+                }
+            })
         })
-    })
+    } else {
+        return new Promise((resolve, reject) => {
+            ssm.getParametersByPath({
+                Path: path,
+                Recursive: true,
+                WithDecryption: true
+            }, (err, data) => {
+                if (err) {
+                    reject(err);
+                } else {
+
+                    resolve(data);
+                }
+            })
+        })
+    }
 }
 
 const parseData = function (data, path) {
@@ -73,7 +97,7 @@ const parseData = function (data, path) {
 
             }
         }
-       
+
     }
     console.log(JSON.stringify(ssmData));
 }
